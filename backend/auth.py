@@ -11,12 +11,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
-JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/keys"
+CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
+
+# idToken é assinado com chaves do endpoint v2.0
+JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
 bearer_scheme = HTTPBearer()
 
 def _get_public_key(kid: str):
-    """Busca a chave pública pelo kid diretamente do x5c do JWKS."""
     resp = httpx.get(JWKS_URL, timeout=10)
     resp.raise_for_status()
     keys = resp.json().get("keys", [])
@@ -41,26 +43,22 @@ def get_current_user(
     try:
         header = jwt.get_unverified_header(token)
         kid = header.get("kid")
-        if not kid:
-            raise credentials_exception
 
         public_key = _get_public_key(kid)
         if not public_key:
             print(f"[AUTH ERROR] kid não encontrado: {kid}")
             raise credentials_exception
 
+        # idToken: audience = CLIENT_ID, issuer = v2.0 do tenant
         payload = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False}
+            audience=CLIENT_ID,
+            issuer=f"https://login.microsoftonline.com/{TENANT_ID}/v2.0"
         )
 
-        if payload.get("tid") != TENANT_ID:
-            print(f"[AUTH ERROR] tenant mismatch: {payload.get('tid')}")
-            raise credentials_exception
-
-        user_id: str = payload.get("preferred_username") or payload.get("upn")
+        user_id: str = payload.get("preferred_username") or payload.get("email") or payload.get("upn")
         if not user_id:
             raise credentials_exception
 

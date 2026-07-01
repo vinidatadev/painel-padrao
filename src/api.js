@@ -20,11 +20,8 @@ async function getToken() {
     scopes: ['User.Read'],
     account: accounts[0]
   })
-  // Debug temporário — mostra os primeiros chars do token no console
-  console.log('[TOKEN DEBUG] accessToken prefix:', response.accessToken?.substring(0, 50))
-  console.log('[TOKEN DEBUG] idToken prefix:', response.idToken?.substring(0, 50))
-  console.log('[TOKEN DEBUG] account:', accounts[0].username)
-  return response.accessToken
+  // Usa o idToken — JWT verificável emitido pelo Azure para esta aplicação
+  return response.idToken
 }
 
 async function request(method, path, body = null) {
