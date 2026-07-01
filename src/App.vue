@@ -12,8 +12,12 @@ const msal = inject('msal')
 const user = ref(null)
 
 onMounted(async () => {
-  // Trata retorno de redirect (caso use loginRedirect no futuro)
-  await msal.handleRedirectPromise()
+  // Trata retorno do loginRedirect
+  const response = await msal.handleRedirectPromise()
+  if (response?.account) {
+    user.value = response.account
+    return
+  }
   const accounts = msal.getAllAccounts()
   if (accounts.length > 0) user.value = accounts[0]
 })
@@ -23,7 +27,7 @@ function onLogin(account) {
 }
 
 async function onLogout() {
-  await msal.logoutPopup()
+  await msal.logoutRedirect()
   user.value = null
 }
 </script>

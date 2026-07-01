@@ -31,13 +31,9 @@ async function login() {
   loading.value = true
   error.value = ''
   try {
-    const response = await msal.loginPopup(loginRequest)
-    emit('logged-in', response.account)
+    await msal.loginRedirect(loginRequest)
   } catch (e) {
-    if (e.errorCode !== 'user_cancelled') {
-      error.value = 'Erro ao autenticar. Tente novamente.'
-    }
-  } finally {
+    error.value = 'Erro ao autenticar. Tente novamente.'
     loading.value = false
   }
 }
