@@ -2,6 +2,7 @@ import os
 import httpx
 import jwt
 import bcrypt
+import time
 from datetime import datetime, timedelta, timezone
 from cryptography.x509 import load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
@@ -35,8 +36,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_local_token(user_id: str, email: str, name: str, role: str) -> str:
     payload = {
-        "sub": email,
-        "user_id": email,
+        "sub": str(user_id),   # UUID real do usuário
+        "email": email,
         "name": name,
         "role": role,
         "provider": "local",
@@ -50,13 +51,16 @@ def _decode_local_token(token: str) -> dict | None:
     except Exception:
         return None
 
-# ---------- Azure JWKS ----------
+# ---------- Azure JWKS — cache com TTL de 1 hora ----------
 
-_jwks_cache: dict[str, object] = {}
+_JWKS_TTL = 3600  # segundos
+_jwks_cache: dict[str, tuple[object, float]] = {}
 
 async def _get_azure_public_key(kid: str):
-    if kid in _jwks_cache:
-        return _jwks_cache[kid]
+    entry = _jwks_cache.get(kid)
+    if entry and time.time() - entry[1] < _JWKS_TTL:
+        return entry[0]
+
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(JWKS_URL)
         resp.raise_for_status()
@@ -66,7 +70,7 @@ async def _get_azure_public_key(kid: str):
             if x5c:
                 cert = load_der_x509_certificate(b64decode(x5c[0]), default_backend())
                 pub = cert.public_key()
-                _jwks_cache[kid] = pub
+                _jwks_cache[kid] = (pub, time.time())
                 return pub
     return None
 
@@ -126,7 +130,7 @@ def require_user(required_role: str | None = None):
             payload = _decode_local_token(token)
             if not payload:
                 raise credentials_exc
-            email    = payload.get("sub")
+            email    = payload.get("email")
             name     = payload.get("name", "")
             provider = "local"
         else:

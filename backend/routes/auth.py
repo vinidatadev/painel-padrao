@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from database import get_db
 from models import User
 from auth import hash_password, verify_password, create_local_token
+from limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,7 +29,8 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -49,10 +51,11 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/setup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def setup_first_admin(body: SetupRequest, db: AsyncSession = Depends(get_db)):
+async def setup_first_admin(request: Request, body: SetupRequest, db: AsyncSession = Depends(get_db)):
     """Cria o primeiro admin. Desativado automaticamente após o primeiro uso."""
     count = await db.execute(select(func.count()).select_from(User))
     if count.scalar() > 0:
+        print(f"[SETUP] Tentativa bloqueada de {request.client.host}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Setup já realizado"
