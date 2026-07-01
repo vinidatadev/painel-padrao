@@ -20,6 +20,10 @@
       <TasksView v-if="view === 'tasks'" :user="user" />
       <AdminView v-else-if="view === 'admin' && user.role === 'admin'" />
     </main>
+
+    <footer class="version-bar">
+      front v{{ frontVersion }} · back v{{ backendVersion }}
+    </footer>
   </div>
 </template>
 
@@ -30,11 +34,19 @@ import TasksView from './views/TasksView.vue'
 import AdminView from './views/AdminView.vue'
 import { clearLocalToken } from './api'
 
-const msal = inject('msal')
-const user = ref(null)
-const view = ref('tasks')
+const msal    = inject('msal')
+const user    = ref(null)
+const view    = ref('tasks')
+const backendVersion = ref('...')
+
+const frontVersion = __APP_VERSION__
 
 onMounted(async () => {
+  // Busca versão do backend
+  fetch(import.meta.env.VITE_API_URL + '/health')
+    .then(r => r.json())
+    .then(d => { backendVersion.value = d.version || '?' })
+    .catch(() => { backendVersion.value = 'offline' })
   // Tenta restaurar sessão local primeiro
   const localToken = sessionStorage.getItem('local_token')
   if (localToken) {
@@ -99,6 +111,16 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f5f7fa; }
 .user-info { font-size: .85rem; color: #666; }
 
 .content { max-width: 900px; width: 100%; margin: 2rem auto; padding: 0 1rem; }
+
+.version-bar {
+  margin-top: auto;
+  padding: .5rem 2rem;
+  text-align: right;
+  font-size: .72rem;
+  color: #bbb;
+  border-top: 1px solid #eee;
+  background: #fff;
+}
 
 .btn { padding: .5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: .9rem; font-weight: 500; transition: opacity .2s; }
 .btn:hover { opacity: .85; }

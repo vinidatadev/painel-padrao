@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="todo-list-dev API",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None
@@ -45,4 +45,4 @@ app.include_router(users_router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": app.version}
