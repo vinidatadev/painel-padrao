@@ -1,0 +1,74 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from database import get_db
+from models import User
+from auth import hash_password, verify_password, create_local_token
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class SetupRequest(BaseModel):
+    email: EmailStr
+    name: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    name: str
+    role: str
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+
+    if (
+        not user
+        or user.auth_provider != "local"
+        or not user.password_hash
+        or not verify_password(body.password, user.password_hash)
+        or not user.is_active
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas"
+        )
+
+    token = create_local_token(str(user.id), user.email, user.name, user.role)
+    return TokenResponse(access_token=token, name=user.name, role=user.role)
+
+
+@router.post("/setup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def setup_first_admin(body: SetupRequest, db: AsyncSession = Depends(get_db)):
+    """Cria o primeiro admin. Desativado automaticamente após o primeiro uso."""
+    count = await db.execute(select(func.count()).select_from(User))
+    if count.scalar() > 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Setup já realizado"
+        )
+
+    admin = User(
+        email=body.email,
+        name=body.name,
+        password_hash=hash_password(body.password),
+        auth_provider="local",
+        role="admin",
+        is_active=True
+    )
+    db.add(admin)
+    await db.commit()
+    await db.refresh(admin)
+
+    token = create_local_token(str(admin.id), admin.email, admin.name, admin.role)
+    return TokenResponse(access_token=token, name=admin.name, role=admin.role)

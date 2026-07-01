@@ -5,9 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from database import get_db
 from models import Task
-from auth import get_current_user
+from auth import require_user
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+any_user = require_user()
 
 # --- Schemas ---
 
@@ -39,7 +41,7 @@ class TaskUpdate(BaseModel):
 @router.get("/", response_model=list[TaskOut])
 async def list_tasks(
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(any_user)
 ):
     result = await db.execute(
         select(Task)
@@ -53,7 +55,7 @@ async def list_tasks(
 async def create_task(
     body: TaskCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(any_user)
 ):
     task = Task(title=body.title, user_id=current_user["user_id"])
     db.add(task)
@@ -67,7 +69,7 @@ async def update_task(
     task_id: UUID,
     body: TaskUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(any_user)
 ):
     task = await _get_own_task(db, task_id, current_user["user_id"])
     task.is_completed = body.is_completed
@@ -80,7 +82,7 @@ async def update_task(
 async def delete_task(
     task_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(any_user)
 ):
     task = await _get_own_task(db, task_id, current_user["user_id"])
     await db.delete(task)

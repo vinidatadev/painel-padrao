@@ -1,14 +1,5 @@
 <template>
   <div class="tasks-page">
-    <header class="navbar">
-      <div class="logo">todo-list-dev</div>
-      <div class="nav-right">
-        <span class="user-info">{{ user.name }}</span>
-        <button class="btn btn-outline" @click="$emit('logout')">Sair</button>
-      </div>
-    </header>
-
-    <main class="content">
       <div class="page-header">
         <h2>Minhas Tarefas</h2>
         <button class="btn btn-primary" @click="showForm = true">+ Nova Tarefa</button>
@@ -66,8 +57,7 @@
             </tr>
           </tbody>
         </table>
-      </div>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -75,12 +65,9 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 
-const props = defineProps({ user: Object })
-defineEmits(['logout'])
-
-const tasks = ref([])
-const loading = ref(true)
-const saving = ref(false)
+const tasks    = ref([])
+const loading  = ref(true)
+const saving   = ref(false)
 const errorMsg = ref('')
 const showForm = ref(false)
 const newTitle = ref('')
@@ -143,23 +130,13 @@ function formatDate(iso) {
 </script>
 
 <style scoped>
-.tasks-page { min-height: 100vh; background: #f5f7fa; display: flex; flex-direction: column; }
-
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: #fff;
-  border-bottom: 1px solid #e8eaf0;
+.tasks-page { display: flex; flex-direction: column; }
   box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
 
 .logo { font-size: 1.1rem; font-weight: 700; color: #0078d4; }
 .nav-right { display: flex; align-items: center; gap: 1rem; }
 .user-info { font-size: .85rem; color: #666; }
-
-.content { max-width: 860px; width: 100%; margin: 2rem auto; padding: 0 1rem; }
 
 .page-header {
   display: flex;
@@ -210,7 +187,6 @@ function formatDate(iso) {
 .btn:hover:not(:disabled) { opacity: .85; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: #0078d4; color: #fff; }
-.btn-outline { background: transparent; border: 1px solid #0078d4; color: #0078d4; }
 .btn-ghost { background: transparent; color: #666; }
 
 .table-wrapper {
