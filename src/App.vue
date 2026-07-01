@@ -35,6 +35,19 @@ const user = ref(null)
 const view = ref('tasks')
 
 onMounted(async () => {
+  // Tenta restaurar sessão local primeiro
+  const localToken = sessionStorage.getItem('local_token')
+  if (localToken) {
+    try {
+      const payload = JSON.parse(atob(localToken.split('.')[1]))
+      user.value = { name: payload.name, role: payload.role, provider: 'local' }
+      return
+    } catch {
+      sessionStorage.removeItem('local_token')
+    }
+  }
+
+  // Depois tenta restaurar sessão Microsoft
   const response = await msal.handleRedirectPromise()
   if (response?.account) {
     user.value = { ...response.account, role: 'user', provider: 'microsoft' }
