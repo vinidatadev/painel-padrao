@@ -1,13 +1,15 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from database import get_db
 from models import User
-from auth import hash_password, verify_password, create_local_token
+from auth import hash_password, verify_password, create_local_token, require_user
 from limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -26,6 +28,24 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     name: str
     role: str
+
+
+class MeResponse(BaseModel):
+    email: str
+    name: str
+    role: str
+    provider: str
+
+
+@router.get("/me", response_model=MeResponse)
+async def me(current: dict = Depends(require_user())):
+    """Retorna dados do usuário autenticado — usado pelo frontend para obter o role real."""
+    return MeResponse(
+        email=current["email"],
+        name=current["name"],
+        role=current["role"],
+        provider=current["provider"]
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -55,7 +75,7 @@ async def setup_first_admin(request: Request, body: SetupRequest, db: AsyncSessi
     """Cria o primeiro admin. Desativado automaticamente após o primeiro uso."""
     count = await db.execute(select(func.count()).select_from(User))
     if count.scalar() > 0:
-        print(f"[SETUP] Tentativa bloqueada de {request.client.host}")
+        logger.warning("[SETUP] Tentativa bloqueada de %s", request.client.host)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Setup já realizado"

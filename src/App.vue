@@ -32,7 +32,7 @@ import { ref, inject, onMounted } from 'vue'
 import LoginView from './views/LoginView.vue'
 import TasksView from './views/TasksView.vue'
 import AdminView from './views/AdminView.vue'
-import { clearLocalToken } from './api'
+import { clearLocalToken, api } from './api'
 
 const msal    = inject('msal')
 const user    = ref(null)
@@ -65,14 +65,25 @@ onMounted(async () => {
   // Depois tenta restaurar sessão Microsoft
   const response = await msal.handleRedirectPromise()
   if (response?.account) {
-    user.value = { ...response.account, role: 'user', provider: 'microsoft' }
+    await setMicrosoftUser(response.account)
     return
   }
   const accounts = msal.getAllAccounts()
   if (accounts.length > 0) {
-    user.value = { ...accounts[0], role: 'user', provider: 'microsoft' }
+    await setMicrosoftUser(accounts[0])
   }
 })
+
+async function setMicrosoftUser(account) {
+  // Busca role real do backend em vez de hardcodar 'user'
+  try {
+    const me = await api.auth.me()
+    user.value = { name: me.name, role: me.role, provider: 'microsoft' }
+  } catch {
+    // Usuário Microsoft não cadastrado na tabela — não loga
+    user.value = null
+  }
+}
 
 function onLogin(account) {
   user.value = account

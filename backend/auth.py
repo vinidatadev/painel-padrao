@@ -3,6 +3,7 @@ import httpx
 import jwt
 import bcrypt
 import time
+import logging
 from datetime import datetime, timedelta, timezone
 from cryptography.x509 import load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
@@ -14,6 +15,8 @@ from sqlalchemy import select
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 TENANT_ID    = os.getenv("AZURE_TENANT_ID")
 CLIENT_ID    = os.getenv("AZURE_CLIENT_ID")
@@ -166,7 +169,8 @@ def require_user(required_role: str | None = None):
             )
 
         return {
-            "user_id": str(user.email),
+            "user_id": str(user.id),   # UUID real
+            "email": str(user.email),
             "name": user.name,
             "role": user.role,
             "provider": provider

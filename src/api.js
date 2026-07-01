@@ -62,6 +62,7 @@ async function request(method, path, body = null) {
 
 export const api = {
   auth: {
+    me:     ()                   => request('GET', '/api/auth/me'),
     login:  (email, password) =>
       fetch(`${BASE_URL}/api/auth/login`, {
         method: 'POST',
