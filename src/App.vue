@@ -40,11 +40,14 @@ onMounted(async () => {
   if (localToken) {
     try {
       const payload = JSON.parse(atob(localToken.split('.')[1]))
-      user.value = { name: payload.name, role: payload.role, provider: 'local' }
-      return
-    } catch {
-      sessionStorage.removeItem('local_token')
-    }
+      // Verifica se o token ainda não expirou (exp em segundos)
+      if (payload.exp && payload.exp * 1000 > Date.now()) {
+        user.value = { name: payload.name, role: payload.role, provider: 'local' }
+        return
+      }
+    } catch { /* token malformado */ }
+    // Token expirado ou inválido — limpa
+    sessionStorage.removeItem('local_token')
   }
 
   // Depois tenta restaurar sessão Microsoft

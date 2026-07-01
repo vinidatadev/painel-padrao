@@ -17,7 +17,13 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     yield
 
-app = FastAPI(title="todo-list-dev API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="todo-list-dev API",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None,      # desativa /docs em produção
+    redoc_url=None      # desativa /redoc em produção
+)
 
 # CORS — só aceita requisições das origens configuradas no .env
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")

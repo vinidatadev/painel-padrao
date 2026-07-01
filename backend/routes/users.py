@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
@@ -32,17 +33,17 @@ class UserOut(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    name: str
-    auth_provider: str   # 'local' | 'microsoft'
-    role: str = "user"
-    password: str | None = None  # obrigatório se auth_provider='local'
+    name: str = Field(..., min_length=2)
+    auth_provider: Literal["local", "microsoft"]
+    role: Literal["admin", "user"] = "user"
+    password: str | None = Field(default=None, min_length=8)
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
-    role: str | None = None
+    name: str | None = Field(default=None, min_length=2)
+    role: Literal["admin", "user"] | None = None
     is_active: bool | None = None
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=8)
 
 
 @router.get("/", response_model=list[UserOut])

@@ -11,13 +11,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8)
 
 
 class SetupRequest(BaseModel):
     email: EmailStr
-    name: str
-    password: str
+    name: str = Field(..., min_length=2)
+    password: str = Field(..., min_length=8)
 
 
 class TokenResponse(BaseModel):
