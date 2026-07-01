@@ -32,6 +32,14 @@ async function getToken() {
   return response.idToken
 }
 
+function parseError(err) {
+  // Pydantic retorna { detail: [ {loc, msg, type}, ... ] } em erros de validação
+  if (Array.isArray(err.detail)) {
+    return err.detail.map(e => e.msg).join(', ')
+  }
+  return err.detail || 'Erro desconhecido'
+}
+
 async function request(method, path, body = null) {
   const token = await getToken()
 
@@ -47,7 +55,7 @@ async function request(method, path, body = null) {
   if (res.status === 204) return null
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Erro desconhecido' }))
-    throw new Error(err.detail || `Erro ${res.status}`)
+    throw new Error(parseError(err))
   }
   return res.json()
 }
@@ -62,7 +70,7 @@ export const api = {
       }).then(async res => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: 'Erro desconhecido' }))
-          throw new Error(err.detail || `Erro ${res.status}`)
+          throw new Error(parseError(err))
         }
         return res.json()
       }),
@@ -74,7 +82,7 @@ export const api = {
       }).then(async res => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: 'Erro desconhecido' }))
-          throw new Error(err.detail || `Erro ${res.status}`)
+          throw new Error(parseError(err))
         }
         return res.json()
       })

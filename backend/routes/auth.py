@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=1)  # validação real é no banco
 
 
 class SetupRequest(BaseModel):
