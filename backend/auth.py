@@ -42,7 +42,7 @@ def get_current_user(
             algorithms=["RS256"],
             options={
                 "verify_exp": True,
-                "verify_aud": False  # token do Graph tem audience diferente, validamos tenant e assinatura
+                "verify_aud": False
             }
         )
         # Garante que o token é do tenant correto
@@ -50,10 +50,13 @@ def get_current_user(
         if token_tenant != TENANT_ID:
             raise credentials_exception
 
-        # preferred_username é o email no Azure AD
         user_id: str = payload.get("preferred_username") or payload.get("upn")
         if not user_id:
             raise credentials_exception
         return {"user_id": user_id, "name": payload.get("name", ""), "payload": payload}
-    except JWTError:
+    except JWTError as e:
+        print(f"[AUTH ERROR] JWTError: {e}")
+        raise credentials_exception
+    except Exception as e:
+        print(f"[AUTH ERROR] Unexpected: {e}")
         raise credentials_exception
