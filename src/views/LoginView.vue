@@ -5,7 +5,7 @@
       <h1>Bem-vindo</h1>
 
       <!-- Login Microsoft -->
-      <button class="btn-ms" @click="loginMicrosoft" :disabled="loading">
+      <button class="btn-ms" @click="loginMicrosoft" :disabled="loading === 'ms'">
         <img
           src="https://learn.microsoft.com/en-us/azure/active-directory/develop/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg"
           alt="Microsoft"
@@ -31,7 +31,7 @@
           autocomplete="current-password"
           required
         />
-        <button class="btn btn-primary" type="submit" :disabled="loading">
+        <button class="btn btn-primary" type="submit" :disabled="loading === 'local'">
           {{ loading === 'local' ? 'Entrando...' : 'Entrar' }}
         </button>
       </form>
