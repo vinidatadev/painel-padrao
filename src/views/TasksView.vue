@@ -131,12 +131,6 @@ function formatDate(iso) {
 
 <style scoped>
 .tasks-page { display: flex; flex-direction: column; }
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
-}
-
-.logo { font-size: 1.1rem; font-weight: 700; color: #0078d4; }
-.nav-right { display: flex; align-items: center; gap: 1rem; }
-.user-info { font-size: .85rem; color: #666; }
 
 .page-header {
   display: flex;
