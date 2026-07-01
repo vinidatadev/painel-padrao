@@ -13,14 +13,22 @@ load_dotenv()
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
 CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
 
-# idToken é assinado com chaves do endpoint v2.0
 JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
 bearer_scheme = HTTPBearer()
 
-def _get_public_key(kid: str):
-    resp = httpx.get(JWKS_URL, timeout=10)
-    resp.raise_for_status()
+# Cache simples das chaves JWKS — evita request HTTP a cada autenticação
+_jwks_cache: dict[str, object] = {}
+
+async def _get_public_key(kid: str):
+    """Busca a chave pública pelo kid, usando cache em memória."""
+    if kid in _jwks_cache:
+        return _jwks_cache[kid]
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(JWKS_URL)
+        resp.raise_for_status()
+
     keys = resp.json().get("keys", [])
     for key in keys:
         if key.get("kid") == kid:
@@ -28,10 +36,12 @@ def _get_public_key(kid: str):
             if x5c:
                 cert_der = b64decode(x5c[0])
                 cert = load_der_x509_certificate(cert_der, default_backend())
-                return cert.public_key()
+                public_key = cert.public_key()
+                _jwks_cache[kid] = public_key
+                return public_key
     return None
 
-def get_current_user(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
 ) -> dict:
     token = credentials.credentials
@@ -44,12 +54,10 @@ def get_current_user(
         header = jwt.get_unverified_header(token)
         kid = header.get("kid")
 
-        public_key = _get_public_key(kid)
+        public_key = await _get_public_key(kid)
         if not public_key:
-            print(f"[AUTH ERROR] kid não encontrado: {kid}")
             raise credentials_exception
 
-        # idToken: audience = CLIENT_ID, issuer = v2.0 do tenant
         payload = jwt.decode(
             token,
             public_key,
