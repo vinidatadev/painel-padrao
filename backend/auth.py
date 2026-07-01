@@ -1,7 +1,9 @@
 import os
 import httpx
 import jwt
-from jwt import PyJWKClient
+from cryptography.x509 import load_der_x509_certificate
+from cryptography.hazmat.backends import default_backend
+from base64 import b64decode
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -9,15 +11,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
-CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-
-# Tokens com iss "https://sts.windows.net/..." são v1 — usam endpoint sem /v2.0
-JWKS_URL_V1 = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/keys"
-JWKS_URL_V2 = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
+JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/keys"
 
 bearer_scheme = HTTPBearer()
-jwks_client_v1 = PyJWKClient(JWKS_URL_V1)
-jwks_client_v2 = PyJWKClient(JWKS_URL_V2)
+
+def _get_public_key(kid: str):
+    """Busca a chave pública pelo kid diretamente do x5c do JWKS."""
+    resp = httpx.get(JWKS_URL, timeout=10)
+    resp.raise_for_status()
+    keys = resp.json().get("keys", [])
+    for key in keys:
+        if key.get("kid") == kid:
+            x5c = key.get("x5c", [])
+            if x5c:
+                cert_der = b64decode(x5c[0])
+                cert = load_der_x509_certificate(cert_der, default_backend())
+                return cert.public_key()
+    return None
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
@@ -29,27 +39,25 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Tenta v1 primeiro (iss = sts.windows.net), depois v2
-        signing_key = None
-        for client in [jwks_client_v1, jwks_client_v2]:
-            try:
-                signing_key = client.get_signing_key_from_jwt(token)
-                break
-            except Exception:
-                continue
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+        if not kid:
+            raise credentials_exception
 
-        if not signing_key:
+        public_key = _get_public_key(kid)
+        if not public_key:
+            print(f"[AUTH ERROR] kid não encontrado: {kid}")
             raise credentials_exception
 
         payload = jwt.decode(
             token,
-            signing_key.key,
+            public_key,
             algorithms=["RS256"],
             options={"verify_aud": False}
         )
 
-        # Valida que o token pertence ao tenant correto
         if payload.get("tid") != TENANT_ID:
+            print(f"[AUTH ERROR] tenant mismatch: {payload.get('tid')}")
             raise credentials_exception
 
         user_id: str = payload.get("preferred_username") or payload.get("upn")
@@ -58,6 +66,8 @@ def get_current_user(
 
         return {"user_id": user_id, "name": payload.get("name", ""), "payload": payload}
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[AUTH ERROR] {type(e).__name__}: {e}")
         raise credentials_exception
