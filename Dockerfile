@@ -6,7 +6,7 @@ RUN npm ci
 
 COPY . .
 
-# Declara os build args para o Vite conseguir ler em tempo de build
+# Build args injetados pelo EasyPanel
 ARG VITE_AZURE_CLIENT_ID
 ARG VITE_AZURE_TENANT_ID
 ARG VITE_AZURE_REDIRECT_URI
