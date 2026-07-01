@@ -1,6 +1,5 @@
 import os
 import httpx
-from functools import lru_cache
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
@@ -14,9 +13,8 @@ JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
 bearer_scheme = HTTPBearer()
 
-@lru_cache(maxsize=1)
 def _get_jwks() -> dict:
-    """Busca as chaves públicas do Azure (cached em memória)."""
+    """Busca as chaves públicas do Azure (sem cache para garantir chaves atualizadas)."""
     response = httpx.get(JWKS_URL, timeout=10)
     response.raise_for_status()
     return response.json()
@@ -36,6 +34,14 @@ def get_current_user(
     )
     try:
         jwks = _get_jwks()
+        # Decodifica sem verificar para inspecionar o header e claims
+        unverified = jwt.get_unverified_claims(token)
+        unverified_header = jwt.get_unverified_header(token)
+        print(f"[AUTH DEBUG] token iss: {unverified.get('iss')}")
+        print(f"[AUTH DEBUG] token aud: {unverified.get('aud')}")
+        print(f"[AUTH DEBUG] token tid: {unverified.get('tid')}")
+        print(f"[AUTH DEBUG] token alg: {unverified_header.get('alg')}")
+        print(f"[AUTH DEBUG] token kid: {unverified_header.get('kid')}")
         payload = jwt.decode(
             token,
             jwks,
