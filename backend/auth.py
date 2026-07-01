@@ -10,12 +10,14 @@ load_dotenv()
 
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
 CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-JWKS_URL = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
+
+# Tokens com iss "https://sts.windows.net/..." são v1 — usam endpoint sem /v2.0
+JWKS_URL_V1 = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/keys"
+JWKS_URL_V2 = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
 bearer_scheme = HTTPBearer()
-
-# PyJWKClient faz cache automático das chaves e busca a certa pelo kid
-jwks_client = PyJWKClient(JWKS_URL)
+jwks_client_v1 = PyJWKClient(JWKS_URL_V1)
+jwks_client_v2 = PyJWKClient(JWKS_URL_V2)
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)
@@ -27,14 +29,23 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Busca a chave pública correta pelo kid do token
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        # Tenta v1 primeiro (iss = sts.windows.net), depois v2
+        signing_key = None
+        for client in [jwks_client_v1, jwks_client_v2]:
+            try:
+                signing_key = client.get_signing_key_from_jwt(token)
+                break
+            except Exception:
+                continue
+
+        if not signing_key:
+            raise credentials_exception
 
         payload = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
-            options={"verify_aud": False}  # Graph token tem aud diferente
+            options={"verify_aud": False}
         )
 
         # Valida que o token pertence ao tenant correto
