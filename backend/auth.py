@@ -9,7 +9,8 @@ load_dotenv()
 
 TENANT_ID = os.getenv("AZURE_TENANT_ID")
 CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-JWKS_URL = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
+# Endpoint geral da Microsoft — cobre tokens do Graph e de qualquer tenant
+JWKS_URL = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
 
 bearer_scheme = HTTPBearer()
 
